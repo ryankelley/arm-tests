@@ -1,0 +1,298 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "environment": {
+            "type": "string",
+            "metadata": { "description": "This is the prefix all resources will get" }
+        },
+        "adminUsername": {
+            "type": "string",
+            "metadata": {
+                "description": "Admin username"
+            }
+        },
+        "adminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Admin password"
+            }
+        },
+        "imagePublisher": {
+            "type": "string",
+            "defaultValue": "MicrosoftWindowsServer",
+            "metadata": {
+                "description": "Image Publisher"
+            }
+        },
+        "imageOffer": {
+            "type": "string",
+            "defaultValue": "WindowsServer",
+            "metadata": {
+                "description": "Image Offer"
+            }
+        },
+        "imageSKU": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "metadata": {
+                "description": "Image SKU"
+            }
+        },
+        "vmStorageAccountContainerName": {
+            "type": "string",
+            "defaultValue": "vhds",
+            "metadata": {
+                "description": "This is the storage account container name"
+            }
+
+        },
+
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_A0",
+            "allowedValues": [
+                "Standard_A0",
+                "Standard_A1",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A4"
+            ],
+            "metadata": {
+                "description": "This is the allowed list of VM sizes"
+            }
+
+        }
+    },
+    "variables": {
+        "newStorageAccountName": "[concat(parameters('environment'),'-kno2-sa')]",
+        "virtualNetworkName": "[concat(parameters('environment'),'-kno2-net')]",
+        "webLoadBalancerName": "[concat(parameters('environment'), '-kno2-web-lb')]",
+        "docLoadBalancerName": "[concat(parameters('environment'), '-kno2-doc-lb')]",
+        "webVmNamePrefix": "[concat(parameters('environment'),'-web')]",
+        "webNetworkInterfaceName": "[concat(parameters('environment'),'-web-nif')]",
+        "availabilitySetName": "[concat(parameters('environment'), '-kno2-avset')]",
+        "storageAccountType": "Standard_GRS",
+        "frontSubnetName": "[concat(parameters('environment'), '-front')]",
+        "serviceSubnetName": "[concat(parameters('environment'), '-service')]",
+        "backSubnetName": "[concat(parameters('environment'), '-back')]",
+        "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+        "frontSubnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('frontSubnetName'))]",
+        "backSubnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('backSubnetName'))]",
+        "serviceSubnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('serviceSubnetName'))]",
+        "numberOfInstances": 2,
+        "webLbID": "[resourceId('Microsoft.Network/loadBalancers',variables('webLoadBalancerName'))]",
+        "docLbID": "[resourceId('Microsoft.Network/loadBalancers',variables('docLoadBalancerName'))]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('newStorageAccountName')]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "StorageAccount"
+            },
+            "properties": {
+                "accountType": "[variables('storageAccountType')]"
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Compute/availabilitySets",
+            "name": "[variables('availabilitySetName')]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "AvailabilitySet"
+            },
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "VirtualNetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.10.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('frontSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.10.10.0/24"
+                        }
+                    },{
+                        "name": "[variables('backSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.10.5.0/24"
+                        }
+                    },{
+                        "name": "[variables('serviceSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "10.10.15.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[concat(variables('webNetworkInterfaceName'), copyindex())]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "NetworkInterface"
+            },
+            "copy": {
+                "name": "nicLoop",
+                "count": "[variables('numberOfInstances')]"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+                "[concat('Microsoft.Network/loadBalancers/', variables('webLoadBalancerName'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('frontSubnetRef')]"
+                            },
+                            "loadBalancerBackendAddressPools": [
+                                {
+                                    "id": "[concat(variables('webLbID'), '/backendAddressPools/BackendPool1')]"
+                                }
+                            ],
+                        }
+                    }
+                ]
+
+            }
+        },
+
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/loadBalancers",
+            "name": "[variables('webLoadBalancerName')]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "LoadBalancer"
+            },
+            "dependsOn": [ "[variables('vnetID')]" ],
+            "properties": {
+                "frontendIpConfigurations": [
+                    {
+
+                        "properties": {
+                            "subnet": {
+                                "Id": "[variables('frontSubnetRef')]"
+                            },
+                            "privateIPAddress": "10.10.10.6",
+                            "privateIPAllocationMethod": "Static"
+                        },
+                        "name": "WebLoadBalancerFrontend"
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "BackendPool1"
+                    }
+                ],
+                "loadBalancingRules": [
+                    {
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('webLoadBalancerName')), '/frontendIpConfigurations/LoadBalancerFrontend')]"
+                            },
+                            "backendAddressPool": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('webLoadBalancerName')), '/backendAddressPools/BackendPool1')]"
+                            },
+                            "probe": {
+                                "Id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('webLoadBalancerName')), '/probes/lbprobe')]"
+                            },
+                            "protocol": "Tcp",
+                            "frontendPort": 80,
+                            "backendPort": 80,
+                            "idleTimeoutInMinutes": 15
+
+                        },
+                        "Name": "lbrule"
+                    }
+                ],
+                "probes": [
+                    {
+                        "properties": {
+                            "protocol": "Tcp",
+                            "port": 80,
+                            "intervalInSeconds": 15,
+                            "numberOfProbes": 2
+                        },
+                        "name": "lbprobe"
+                    }
+                ],
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[concat(variables('webVmNamePrefix'), copyindex())]",
+            "copy": {
+                "name": "virtualMachineLoop",
+                "count": "[variables('numberOfInstances')]"
+            },
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "VirtualMachines"
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', variables('newStorageAccountName'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('webNetworkInterfaceName'), copyindex())]",
+                "[concat('Microsoft.Compute/availabilitySets/', variables('availabilitySetName'))]"
+            ],
+            "properties": {
+                "availabilitySet": {
+                    "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('availabilitySetName'))]"
+                },
+                "hardwareProfile": {
+                    "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                    "computername": "[concat(variables('webVmNamePrefix'), copyIndex())]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[parameters('imagePublisher')]",
+                        "offer": "[parameters('imageOffer')]",
+                        "sku": "[parameters('imageSKU')]",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "osdisk",
+                        "vhd": {
+                            "uri": "[concat('http://',variables('newStorageAccountName'),'.blob.core.windows.net/vhds/','osdisk', copyindex(), '.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('webNetworkInterfaceName'),copyindex()))]"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
