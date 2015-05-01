@@ -65,7 +65,7 @@
         }
     },
     "variables": {
-        "newStorageAccountName": "[concat(parameters('environment'),'-kno2-sa')]",
+        "newStorageAccountName": "[concat(parameters('environment'),'kno2sa')]",
         "virtualNetworkName": "[concat(parameters('environment'),'-kno2-net')]",
         "webLoadBalancerName": "[concat(parameters('environment'), '-kno2-web-lb')]",
         "docLoadBalancerName": "[concat(parameters('environment'), '-kno2-doc-lb')]",
