@@ -104,7 +104,7 @@
             "location": "[resourceGroup().location]",
             "tags": {
                 "displayName": "AvailabilitySet"
-            },
+            }
         },
         {
             "apiVersion": "2015-05-01-preview",
@@ -169,8 +169,7 @@
                             "loadBalancerBackendAddressPools": [
                                 {
                                     "id": "[concat(variables('webLbID'), '/backendAddressPools/BackendPool1')]"
-                                }
-                            ],
+                                }]
                         }
                     }
                 ]
@@ -236,8 +235,7 @@
                             "numberOfProbes": 2
                         },
                         "name": "lbprobe"
-                    }
-                ],
+                    }]
             }
         },
         {
