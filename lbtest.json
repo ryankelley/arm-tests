@@ -67,8 +67,8 @@
     "variables": {
         "newStorageAccountName": "[concat(parameters('environment'),'kno2sa')]",
         "virtualNetworkName": "[concat(parameters('environment'),'-kno2-net')]",
-        "webLoadBalancerName": "[concat(parameters('environment'), '-kno2-web-lb')]",
-        "docLoadBalancerName": "[concat(parameters('environment'), '-kno2-doc-lb')]",
+        "webLoadBalancerName": "[concat(parameters('environment'), 'Kno2WebLb')]",
+        "docLoadBalancerName": "[concat(parameters('environment'), 'Kno2DocLb')]",
         "webVmNamePrefix": "[concat(parameters('environment'),'-web')]",
         "webNetworkInterfaceName": "[concat(parameters('environment'),'-web-nif')]",
         "availabilitySetName": "[concat(parameters('environment'), '-kno2-avset')]",
